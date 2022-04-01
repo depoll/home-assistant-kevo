@@ -1,10 +1,11 @@
 import logging
 import time
 import voluptuous as vol
+from datetime import timedelta
 
 # Import the device class from the component that you want to support
 from homeassistant.components.lock import LockEntity, PLATFORM_SCHEMA
-from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, STATE_LOCKED
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, STATE_LOCKED, STATE_UNLOCKED, STATE_LOCKING, STATE_UNLOCKING
 import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ CONF_LOCKS = "locks"
 CONF_LOCK_ID = "lock_id"
 CONF_MAX_RETRIES = "max_retries"
 CONF_RETRY_DELAY = "retry_delay"
+SCAN_INTERVAL = timedelta(minutes=3)
 
 # Validation of the user's configuration
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -81,18 +83,46 @@ class KevoDevice(LockEntity):
         """Return true if lock is locked."""
         return self._state == STATE_LOCKED
 
+    @property
+    def is_unlocking(self):
+        return self._state == STATE_UNLOCKING
+
+    @property
+    def is_locking(self):
+        return self._state == STATE_LOCKING
+
+    @property
+    def unique_id(self):
+        """The unique ID of the Kevo Lock"""
+        return self._kevo.lockID
+
     def lock(self, **kwargs):
         """Instruct the lock to lock."""
-        self._kevo.Lock()
+        self._state = STATE_LOCKING
+        self.schedule_update_ha_state(force_refresh=False)
+        try:
+            self._kevo.Lock()
+            self._state = STATE_LOCKED
+            self.schedule_update_ha_state(force_refresh=False)
+        except:
+            self.schedule_update_ha_state(force_refresh=True)
+            raise
 
     def unlock(self, **kwargs):
         """Instruct the lock to unlock."""
-        self._kevo.Unlock()
+        self._state = STATE_UNLOCKING
+        self.schedule_update_ha_state(force_refresh=False)
+        try:
+            self._kevo.Unlock()
+            self._state = STATE_UNLOCKED
+            self.schedule_update_ha_state(force_refresh=False)
+        except:
+            self.schedule_update_ha_state(force_refresh=True)
+            raise
 
     def update(self):
         """Fetch new state data for this lock.
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._kevo.EndSession()
         self._state = self._kevo.GetBoltState().lower()
