@@ -98,6 +98,7 @@ class KevoDevice(LockEntity):
 
     def lock(self, **kwargs):
         """Instruct the lock to lock."""
+        oldState = self._state
         self._state = STATE_LOCKING
         self.schedule_update_ha_state(force_refresh=False)
         try:
@@ -105,11 +106,13 @@ class KevoDevice(LockEntity):
             self._state = STATE_LOCKED
             self.schedule_update_ha_state(force_refresh=False)
         except:
+            self._state = oldState
             self.schedule_update_ha_state(force_refresh=True)
             raise
 
     def unlock(self, **kwargs):
         """Instruct the lock to unlock."""
+        oldState = self._state
         self._state = STATE_UNLOCKING
         self.schedule_update_ha_state(force_refresh=False)
         try:
@@ -117,6 +120,7 @@ class KevoDevice(LockEntity):
             self._state = STATE_UNLOCKED
             self.schedule_update_ha_state(force_refresh=False)
         except:
+            self._state = oldState
             self.schedule_update_ha_state(force_refresh=True)
             raise
 
